@@ -36,6 +36,12 @@ impl Shape for fj::Sweep {
             self.length,
         ));
 
+        // TASK: Iterate through `original_faces.vertices()`, sweep each one
+        //       into an edge.
+        // TASK: Iterate through `original_faces.edges()`, sweep each one into
+        //       a face. The previously created edges must be provided to the
+        //       edge-to-face-sweep operation.
+
         // This will only work correctly, if the original shape consists of one
         // edge. If there are more, this will create some kind of weird face
         // chimera, a single face to represent all the side faces.
