@@ -1,11 +1,24 @@
 !@import fj;
 
-!outer  = fj:circle 1.0;
-!inner  = fj:circle 0.2;
-!height = 1.0;
+!spacer = {
+    !outer  = fj:circle 1.0;
+    !inner  = fj:circle 0.2;
+    !height = 1.0;
 
-!r = fj:sweep (fj:diff2d outer inner) height;
+    fj:sweep (fj:diff2d outer inner) height
+};
 
-std:displayln r;
+!cuboid = {
+    !x = 3.0;
+    !y = 2.0;
+    !z = 1.0;
 
-r
+    fj:sweep (fj:sketch $[
+        $f(-(x / 2.0), -(y / 2.0)),
+        $f( (x / 2.0), -(y / 2.0)),
+        $f( (x / 2.0),  (y / 2.0)),
+        $f(-(x / 2.0),  (y / 2.0)),
+    ]) z;
+};
+
+cuboid[]
