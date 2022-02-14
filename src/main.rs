@@ -8,6 +8,7 @@ mod math;
 mod mesh;
 mod model;
 mod window;
+mod wl_api;
 
 use std::collections::HashSet;
 use std::ffi::OsStr;

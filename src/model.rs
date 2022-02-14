@@ -2,13 +2,21 @@ use std::{collections::HashMap, io, path::PathBuf, process::Command};
 
 use thiserror::Error;
 
+use crate::wl_api::run_wl;
+
 pub struct Model {
-    name: String,
+    name:       String,
+    is_wlambda: bool,
 }
 
 impl Model {
     pub fn new(name: String) -> Self {
-        Self { name }
+        let is_wlambda = name.ends_with(".wl");
+
+        Self {
+            name,
+            is_wlambda,
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -16,14 +24,26 @@ impl Model {
     }
 
     pub fn path(&self) -> String {
-        format!("models/{}", self.name)
+        if self.is_wlambda {
+            self.name.clone()
+        } else {
+            format!("models/{}", self.name)
+        }
     }
 
     pub fn src_path(&self) -> PathBuf {
-        format!("{}/src", self.path()).into()
+        if self.is_wlambda {
+            self.name.clone().into()
+        } else {
+            format!("{}/src", self.path()).into()
+        }
     }
 
     pub fn lib_path(&self) -> String {
+        if self.is_wlambda {
+            return self.name.clone();
+        }
+
         let name = self.name().replace("-", "_");
 
         let file = if cfg!(windows) {
@@ -42,6 +62,13 @@ impl Model {
         &self,
         arguments: &HashMap<String, String>,
     ) -> Result<fj::Shape, Error> {
+        if self.is_wlambda {
+            return match run_wl(self.path()) {
+                Ok(shp) => Ok(shp),
+                Err(e)  => Err(Error::WLambda(e)),
+            }
+        }
+
         let status = Command::new("cargo")
             .arg("build")
             .args(["--manifest-path", &format!("{}/Cargo.toml", self.path())])
@@ -87,6 +114,9 @@ pub enum Error {
 
     #[error("Error loading model from dynamic library")]
     LibLoading(#[from] libloading::Error),
+
+    #[error("Error evaluating WLambda model")]
+    WLambda(#[from] crate::wl_api::WLError),
 }
 
 type ModelFn =
