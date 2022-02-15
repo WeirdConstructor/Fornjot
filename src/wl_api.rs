@@ -12,19 +12,36 @@ use fj::*;
 
 #[derive(Debug, Clone)]
 pub enum AShape {
+    Trans(fj::Transform),
     Diff2d(fj::Difference2d),
     Circle(fj::Circle),
     Sketch(fj::Sketch),
     Sweep(fj::Sweep),
+    Union(fj::Union),
 }
 
 impl AShape {
+    pub fn to_shape3d(&self) -> Option<fj::Shape3d> {
+        match self {
+              AShape::Circle(_)
+            | AShape::Sketch(_)
+            | AShape::Diff2d(_) => Some(fj::Sweep {
+                shape: self.to_shape2d()?, length: 1.0
+            }.into()),
+            AShape::Sweep(sw) => Some(sw.clone().into()),
+            AShape::Trans(t)  => Some(t.clone().into()),
+            AShape::Union(u)  => Some(u.clone().into()),
+        }
+    }
+
     pub fn to_shape2d(&self) -> Option<fj::Shape2d> {
         match self {
             AShape::Circle(c) => Some(c.clone().into()),
             AShape::Sketch(s) => Some(s.clone().into()),
             AShape::Diff2d(d) => Some(d.clone().into()),
             AShape::Sweep(sw) => Some(sw.shape.clone().into()),
+            AShape::Trans(_)  => None,
+            AShape::Union(_)  => None,
         }
     }
 
@@ -34,6 +51,8 @@ impl AShape {
             AShape::Sketch(s) => s.clone().into(),
             AShape::Diff2d(d) => d.clone().into(),
             AShape::Sweep(sw) => sw.clone().into(),
+            AShape::Trans(t)  => t.clone().into(),
+            AShape::Union(u)  => u.clone().into(),
         }
     }
 }
@@ -124,6 +143,18 @@ pub fn vv2shape(mut v: VVal) -> Result<fj::Shape, WLError> {
     }
 }
 
+pub fn vv2shape3d(mut v: VVal) -> Result<fj::Shape3d, WLError> {
+    if let Some(shp) = v.with_usr_ref(|vvshp: &mut VVShape| vvshp.shape.clone()) {
+        if let Some(shp3d) = shp.to_shape3d() {
+            Ok(shp3d)
+        } else {
+            Err(WLError::NoShape3d)
+        }
+    } else {
+        Err(WLError::NoShape3d)
+    }
+}
+
 pub fn vv2shape2d(mut v: VVal) -> Result<fj::Shape2d, WLError> {
     if let Some(shp) = v.with_usr_ref(|vvshp: &mut VVShape| vvshp.shape.clone()) {
         if let Some(shp2d) = shp.to_shape2d() {
@@ -140,6 +171,7 @@ pub fn vv2shape2d(mut v: VVal) -> Result<fj::Shape2d, WLError> {
 pub enum WLError {
     NoShape,
     NoShape2d,
+    NoShape3d,
     ExecError(String),
 }
 
@@ -166,6 +198,41 @@ pub fn run_wl(file: String) -> Result<Shape, WLError> {
     global_env.borrow_mut().set_var("ARGV", &argv);
 
     let mut st = wlambda::SymbolTable::new();
+
+    st.fun(
+        "union", move |env: &mut Env, _argc: usize| {
+            let a = vv2shape3d(env.arg(0))?;
+            let b = vv2shape3d(env.arg(1))?;
+            Ok(shape2vv(AShape::Union(fj::Union { a, b })))
+        }, Some(2), Some(2), false);
+
+    st.fun(
+        "trans", move |env: &mut Env, _argc: usize| {
+            let shape = vv2shape3d(env.arg(0))?;
+            let offs  = env.arg(1);
+            let axis  = env.arg(2);
+            let angle = env.arg(3).f();
+            let axis =
+                if axis.is_none() {
+                    [1.0, 0.0, 0.0]
+                } else {
+                    [
+                        axis.v_f(0),
+                        axis.v_f(1),
+                        axis.v_f(2),
+                    ]
+                };
+            Ok(shape2vv(AShape::Trans(fj::Transform {
+                shape,
+                axis,
+                angle,
+                offset: [
+                    offs.v_f(0),
+                    offs.v_f(1),
+                    offs.v_f(2),
+                ],
+            })))
+        }, Some(2), Some(4), false);
 
     st.fun(
         "sketch", move |env: &mut Env, _argc: usize| {
