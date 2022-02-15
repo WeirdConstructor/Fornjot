@@ -18,6 +18,7 @@ pub enum AShape {
     Sketch(fj::Sketch),
     Sweep(fj::Sweep),
     Union(fj::Union),
+    Diff(fj::Difference),
 }
 
 impl AShape {
@@ -31,6 +32,7 @@ impl AShape {
             AShape::Sweep(sw) => Some(sw.clone().into()),
             AShape::Trans(t)  => Some(t.clone().into()),
             AShape::Union(u)  => Some(u.clone().into()),
+            AShape::Diff(d)   => Some(d.clone().into()),
         }
     }
 
@@ -42,6 +44,7 @@ impl AShape {
             AShape::Sweep(sw) => Some(sw.shape.clone().into()),
             AShape::Trans(_)  => None,
             AShape::Union(_)  => None,
+            AShape::Diff(_)   => None,
         }
     }
 
@@ -53,6 +56,7 @@ impl AShape {
             AShape::Sweep(sw) => sw.clone().into(),
             AShape::Trans(t)  => t.clone().into(),
             AShape::Union(u)  => u.clone().into(),
+            AShape::Diff(d)   => d.clone().into(),
         }
     }
 }
@@ -198,6 +202,13 @@ pub fn run_wl(file: String) -> Result<Shape, WLError> {
     global_env.borrow_mut().set_var("ARGV", &argv);
 
     let mut st = wlambda::SymbolTable::new();
+
+    st.fun(
+        "diff", move |env: &mut Env, _argc: usize| {
+            let a = vv2shape3d(env.arg(0))?;
+            let b = vv2shape3d(env.arg(1))?;
+            Ok(shape2vv(AShape::Diff(fj::Difference { a, b })))
+        }, Some(2), Some(2), false);
 
     st.fun(
         "union", move |env: &mut Env, _argc: usize| {
